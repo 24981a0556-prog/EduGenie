@@ -25,28 +25,49 @@ Unit: ${unit}
 Topics in this unit:
 - ${topicList}
 
-Generate the summary in EXACTLY this markdown format:
+Generate the summary in EXACTLY this markdown format. Follow every section precisely:
 
 # ${unit}
 
 ## Topics Covered in This Unit
-List all topics as bullet points.
+List ALL topics as bullet points.
+- Topic 1
+- Topic 2
+- ...
 
 ## Key Points with Explanation
-For each important concept, provide:
-### Key Point: [Concept Name]
-**Explanation:** A clear 2-3 line explanation.
+For EACH important concept in the unit, create a separate sub-heading and explanation. Cover every major concept thoroughly.
+
+### KEY POINT: [Concept Name]
+**Explanation:** A clear, detailed 2-3 line explanation of this concept. Make it easy to understand for a college student.
+
+### KEY POINT: [Next Concept Name]
+**Explanation:** Another clear 2-3 line explanation.
+
+(Repeat for ALL key concepts — aim for at least 5-8 key points)
 
 ## Important Formulas / Conditions
-List any relevant formulas, conditions, or rules. If none apply, write "No specific formulas for this unit."
+List any relevant formulas, conditions, theorems, or rules in a numbered list. Show each formula clearly.
+If none apply, write "No specific formulas for this unit."
+
+1. Formula/Condition 1
+2. Formula/Condition 2
 
 ## Examples
-Provide 2-3 simple conceptual examples that help students understand the topic.
+Provide 2-3 simple, concrete conceptual examples that help students understand the topic. Each example should be a short scenario or illustration.
+
+**Example 1:**
+[Describe a clear scenario]
+
+**Example 2:**
+[Describe another scenario]
 
 ## Exam Tips
-Provide 4-5 short, actionable exam-oriented tips specific to this unit.
+Provide 4-5 short, actionable exam-oriented tips specific to this unit as bullet points.
+- Tip 1
+- Tip 2
 
-Make the content detailed, accurate, and exam-focused. Use clear language suitable for college students.`;
+Make the content detailed, accurate, and exam-focused. Use clear language suitable for college students. Be thorough with key points — cover every important concept in the unit.`;
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
