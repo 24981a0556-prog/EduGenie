@@ -329,22 +329,6 @@ export async function streamUnitSummary({
 
   onDone();
 }
-  const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/predict-questions`;
-  const resp = await fetch(url, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-    },
-    body: JSON.stringify({ subject, unit, topics }),
-  });
-  if (!resp.ok) {
-    if (resp.status === 429) throw new Error("Rate limit exceeded.");
-    if (resp.status === 402) throw new Error("AI usage limit reached.");
-    throw new Error("Failed to predict questions");
-  }
-  const data = await resp.json();
-  return data.questions || [];
 
 // ---- Syllabus extraction (simulated) ----
 
