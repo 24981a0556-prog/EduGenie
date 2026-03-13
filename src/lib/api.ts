@@ -349,7 +349,6 @@ export async function generateCheatsheet(subject: string, unit: string, topics: 
   const data = await resp.json();
   return data.cheatsheet || "";
 }
-}
 
 // ---- Syllabus extraction (simulated) ----
 
