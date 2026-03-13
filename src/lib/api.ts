@@ -347,7 +347,7 @@ export async function streamUnitSummary({
   return data.questions || [];
 }
 
-import { PredictedQuestion } from './types';
+
 
 // ---- Syllabus extraction (simulated - keeps the current template logic) ----
 function generateId() {
