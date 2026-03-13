@@ -251,6 +251,102 @@ export async function predictQuestions(subject: string, unit: string, topics: st
   return data.questions || [];
 }
 
+// ---- Generate Unit Summary (streaming) ----
+export async function streamUnitSummary({
+  subject,
+  unit,
+  topics,
+  onDelta,
+  onDone,
+}: {
+  subject: string;
+  unit: string;
+  topics: { name: string; summary?: string; key_points?: string[]; concepts?: string[]; formulas?: string[] }[];
+  onDelta: (text: string) => void;
+  onDone: () => void;
+}) {
+  const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-summary`;
+  const resp = await fetch(url, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+    },
+    body: JSON.stringify({ subject, unit, topics }),
+  });
+
+  if (!resp.ok || !resp.body) {
+    if (resp.status === 429) throw new Error("Rate limit exceeded. Please wait a moment.");
+    if (resp.status === 402) throw new Error("AI usage limit reached. Please add credits.");
+    throw new Error("Failed to generate summary");
+  }
+
+  const reader = resp.body.getReader();
+  const decoder = new TextDecoder();
+  let textBuffer = "";
+  let streamDone = false;
+
+  while (!streamDone) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    textBuffer += decoder.decode(value, { stream: true });
+
+    let newlineIndex: number;
+    while ((newlineIndex = textBuffer.indexOf("\n")) !== -1) {
+      let line = textBuffer.slice(0, newlineIndex);
+      textBuffer = textBuffer.slice(newlineIndex + 1);
+      if (line.endsWith("\r")) line = line.slice(0, -1);
+      if (line.startsWith(":") || line.trim() === "") continue;
+      if (!line.startsWith("data: ")) continue;
+      const jsonStr = line.slice(6).trim();
+      if (jsonStr === "[DONE]") { streamDone = true; break; }
+      try {
+        const parsed = JSON.parse(jsonStr);
+        const content = parsed.choices?.[0]?.delta?.content;
+        if (content) onDelta(content);
+      } catch {
+        textBuffer = line + "\n" + textBuffer;
+        break;
+      }
+    }
+  }
+
+  if (textBuffer.trim()) {
+    for (let raw of textBuffer.split("\n")) {
+      if (!raw) continue;
+      if (raw.endsWith("\r")) raw = raw.slice(0, -1);
+      if (raw.startsWith(":") || raw.trim() === "") continue;
+      if (!raw.startsWith("data: ")) continue;
+      const jsonStr = raw.slice(6).trim();
+      if (jsonStr === "[DONE]") continue;
+      try {
+        const parsed = JSON.parse(jsonStr);
+        const content = parsed.choices?.[0]?.delta?.content;
+        if (content) onDelta(content);
+      } catch { /* ignore */ }
+    }
+  }
+
+  onDone();
+}
+  const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/predict-questions`;
+  const resp = await fetch(url, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+    },
+    body: JSON.stringify({ subject, unit, topics }),
+  });
+  if (!resp.ok) {
+    if (resp.status === 429) throw new Error("Rate limit exceeded.");
+    if (resp.status === 402) throw new Error("AI usage limit reached.");
+    throw new Error("Failed to predict questions");
+  }
+  const data = await resp.json();
+  return data.questions || [];
+}
+
 import { PredictedQuestion } from './types';
 
 // ---- Syllabus extraction (simulated - keeps the current template logic) ----
