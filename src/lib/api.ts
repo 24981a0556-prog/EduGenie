@@ -345,14 +345,8 @@ export async function streamUnitSummary({
   }
   const data = await resp.json();
   return data.questions || [];
-}
 
-
-
-// ---- Syllabus extraction (simulated - keeps the current template logic) ----
-function generateId() {
-  return Math.random().toString(36).substring(2, 9);
-}
+// ---- Syllabus extraction (simulated) ----
 
 export function extractSyllabus(subjectName: string): { name: string; lessons: Omit<Lesson, 'id'>[] }[] {
   const lower = subjectName.toLowerCase();
