@@ -330,6 +330,26 @@ export async function streamUnitSummary({
   onDone();
 }
 
+// ---- Generate Cheat Sheet ----
+export async function generateCheatsheet(subject: string, unit: string, topics: string[]): Promise<string> {
+  const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-cheatsheet`;
+  const resp = await fetch(url, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+    },
+    body: JSON.stringify({ subject, unit, topics }),
+  });
+  if (!resp.ok) {
+    if (resp.status === 429) throw new Error("Rate limit exceeded.");
+    if (resp.status === 402) throw new Error("AI usage limit reached.");
+    throw new Error("Failed to generate cheat sheet");
+  }
+  const data = await resp.json();
+  return data.cheatsheet || "";
+}
+
 // ---- Syllabus extraction (simulated) ----
 
 export function extractSyllabus(subjectName: string): { name: string; lessons: Omit<Lesson, 'id'>[] }[] {
