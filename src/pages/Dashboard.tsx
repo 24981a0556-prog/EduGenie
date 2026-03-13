@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { ChevronRight, Flame, AlertTriangle, Clock, Play } from 'lucide-react';
+import { ChevronRight, Flame, AlertTriangle, Clock, Play, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { store } from '@/lib/store';
-import { Subject, Unit, Lesson } from '@/lib/types';
+import { Subject } from '@/lib/types';
+import { getSubjects } from '@/lib/api';
 import AppShell from '@/components/AppShell';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -24,21 +24,25 @@ function PriorityBadge({ priority }: { priority: string }) {
 export default function Dashboard() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const subjects = store.getSubjects();
-  const [activeSubjectId, setActiveSubjectId] = useState(searchParams.get('subject') || subjects[0]?.id || '');
+  const [subjects, setSubjects] = useState<Subject[]>([]);
+  const [activeSubjectId, setActiveSubjectId] = useState('');
   const [expandedUnit, setExpandedUnit] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    (async () => {
+      const s = await getSubjects();
+      setSubjects(s);
+      if (s.length === 0) { navigate('/subjects'); return; }
+      const paramId = searchParams.get('subject');
+      setActiveSubjectId(paramId && s.find(x => x.id === paramId) ? paramId : s[0].id);
+      setLoading(false);
+    })();
+  }, []);
 
   const activeSubject = subjects.find(s => s.id === activeSubjectId);
 
-  useEffect(() => {
-    if (!subjects.length) navigate('/subjects');
-  }, [subjects, navigate]);
-
-  if (!activeSubject) return null;
-
-  const startFocus = (lesson: Lesson) => {
-    navigate(`/focus?subject=${activeSubject.name}&lesson=${encodeURIComponent(lesson.name)}`);
-  };
+  if (loading || !activeSubject) return null;
 
   return (
     <AppShell>
@@ -65,6 +69,9 @@ export default function Dashboard() {
               <Clock className="h-3.5 w-3.5" /> {activeSubject.daysLeft} days until exam · {activeSubject.units.length} units
             </p>
           </div>
+          <Button variant="outline" onClick={() => navigate(`/exam-predictor?subject=${activeSubjectId}`)}>
+            <Sparkles className="h-4 w-4 mr-1.5" /> Exam Predictor
+          </Button>
         </div>
 
         {/* Units */}
@@ -87,23 +94,24 @@ export default function Dashboard() {
                     transition={{ duration: 0.2 }}
                     className="overflow-hidden"
                   >
-                    <div className="border-t border-border px-5 pb-4 pt-2 space-y-2">
-                      {unit.lessons.map(lesson => (
-                        <div key={lesson.id} className="flex items-center justify-between py-2.5 px-3 rounded-lg hover:bg-muted/50 transition-colors group">
-                          <div className="flex items-center gap-3">
-                            <div className="h-2 w-2 rounded-full bg-primary/40" />
-                            <span className="text-sm font-medium">{lesson.name}</span>
-                            <PriorityBadge priority={lesson.priority} />
+                    <div className="border-t border-border px-5 pb-4 pt-2">
+                      <div className="space-y-2 mb-3">
+                        {unit.lessons.map(lesson => (
+                          <div key={lesson.id} className="flex items-center justify-between py-2.5 px-3 rounded-lg hover:bg-muted/50 transition-colors">
+                            <div className="flex items-center gap-3">
+                              <div className="h-2 w-2 rounded-full bg-primary/40" />
+                              <span className="text-sm font-medium">{lesson.name}</span>
+                              <PriorityBadge priority={lesson.priority} />
+                            </div>
                           </div>
-                          <Button
-                            variant="ghost" size="sm"
-                            className="opacity-0 group-hover:opacity-100 transition-opacity"
-                            onClick={() => startFocus(lesson)}
-                          >
-                            <Play className="h-3.5 w-3.5 mr-1" /> Study
-                          </Button>
-                        </div>
-                      ))}
+                        ))}
+                      </div>
+                      <Button
+                        size="sm"
+                        onClick={() => navigate(`/focus?subject=${activeSubjectId}&unit=${unit.id}`)}
+                      >
+                        <Play className="h-3.5 w-3.5 mr-1" /> Start Focus Session
+                      </Button>
                     </div>
                   </motion.div>
                 )}

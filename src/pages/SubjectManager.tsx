@@ -1,130 +1,122 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, BookOpen, Trash2, ArrowRight } from 'lucide-react';
+import { Plus, BookOpen, Trash2, ArrowRight, FileText, Upload, ExternalLink, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { store } from '@/lib/store';
-import { Subject, Unit, Lesson } from '@/lib/types';
+import { Subject, Resource } from '@/lib/types';
+import { getSubjects, addSubject, deleteSubject, extractSyllabus, getResources, uploadResource, deleteResource } from '@/lib/api';
 import { toast } from 'sonner';
 import AppShell from '@/components/AppShell';
 
-function generateId() {
-  return Math.random().toString(36).substring(2, 9);
-}
-
-// Simulate AI syllabus extraction
-function extractSyllabus(subjectName: string): Unit[] {
-  const syllabusTemplates: Record<string, Unit[]> = {
-    default: [
-      {
-        id: generateId(), name: 'Unit 1 – Introduction',
-        lessons: [
-          { id: generateId(), name: 'Basic Concepts', priority: 'high', summary: 'Fundamental concepts and terminology.', keyPoints: ['Core definitions', 'Historical context', 'Applications'], concepts: ['Foundation principles'], formulas: [] },
-          { id: generateId(), name: 'Overview & Scope', priority: 'medium', summary: 'Scope and boundaries of the subject.', keyPoints: ['Subject boundaries', 'Interdisciplinary connections'], concepts: ['Scope definition'], formulas: [] },
-        ]
-      },
-      {
-        id: generateId(), name: 'Unit 2 – Core Concepts',
-        lessons: [
-          { id: generateId(), name: 'Fundamental Theories', priority: 'high', summary: 'Key theories that form the foundation.', keyPoints: ['Primary theory', 'Secondary theory', 'Applications'], concepts: ['Theoretical framework'], formulas: [] },
-          { id: generateId(), name: 'Practical Applications', priority: 'medium', summary: 'Real-world applications of core concepts.', keyPoints: ['Industry use cases', 'Problem solving'], concepts: ['Applied knowledge'], formulas: [] },
-          { id: generateId(), name: 'Case Studies', priority: 'low', summary: 'Analysis of real-world examples.', keyPoints: ['Case analysis methodology'], concepts: ['Critical analysis'], formulas: [] },
-        ]
-      },
-      {
-        id: generateId(), name: 'Unit 3 – Advanced Topics',
-        lessons: [
-          { id: generateId(), name: 'Advanced Techniques', priority: 'high', summary: 'Advanced methods and techniques.', keyPoints: ['Optimization', 'Efficiency', 'Best practices'], concepts: ['Advanced methodology'], formulas: [] },
-          { id: generateId(), name: 'Research Frontiers', priority: 'low', summary: 'Current research directions.', keyPoints: ['Emerging trends', 'Open problems'], concepts: ['Research methodology'], formulas: [] },
-        ]
-      },
-      {
-        id: generateId(), name: 'Unit 4 – Applications & Review',
-        lessons: [
-          { id: generateId(), name: 'Comprehensive Review', priority: 'high', summary: 'Complete review of all units.', keyPoints: ['Summary of key topics', 'Inter-unit connections'], concepts: ['Synthesis'], formulas: [] },
-          { id: generateId(), name: 'Problem Solving', priority: 'medium', summary: 'Practice problems and solutions.', keyPoints: ['Problem types', 'Solution strategies'], concepts: ['Problem-solving frameworks'], formulas: [] },
-        ]
-      },
-    ],
-  };
-
-  const osUnits: Unit[] = [
-    {
-      id: generateId(), name: 'Unit 1 – Process Management',
-      lessons: [
-        { id: generateId(), name: 'Process Concepts', priority: 'high', summary: 'Processes, PCB, process states and transitions.', keyPoints: ['Process states', 'PCB structure', 'Context switching'], concepts: ['Process lifecycle'], formulas: [] },
-        { id: generateId(), name: 'CPU Scheduling', priority: 'high', summary: 'Scheduling algorithms: FCFS, SJF, RR, Priority.', keyPoints: ['FCFS', 'SJF', 'Round Robin', 'Priority scheduling'], concepts: ['Scheduling criteria', 'Gantt charts'], formulas: ['Turnaround Time = Completion - Arrival', 'Waiting Time = Turnaround - Burst'] },
-        { id: generateId(), name: 'Process Synchronization', priority: 'medium', summary: 'Critical section, semaphores, monitors.', keyPoints: ['Critical section problem', 'Mutex', 'Semaphores'], concepts: ['Race conditions', 'Mutual exclusion'], formulas: [] },
-      ]
-    },
-    {
-      id: generateId(), name: 'Unit 2 – Deadlocks',
-      lessons: [
-        { id: generateId(), name: 'Deadlock Conditions', priority: 'high', summary: 'Four necessary conditions for deadlock.', keyPoints: ['Mutual exclusion', 'Hold and wait', 'No preemption', 'Circular wait'], concepts: ['Deadlock characterization'], formulas: [] },
-        { id: generateId(), name: "Banker's Algorithm", priority: 'high', summary: 'Deadlock avoidance using resource allocation.', keyPoints: ['Safety algorithm', 'Resource request algorithm', 'Available matrix'], concepts: ['Safe state', 'Unsafe state'], formulas: ['Need = Max - Allocation'] },
-        { id: generateId(), name: 'Resource Allocation Graph', priority: 'medium', summary: 'Graph-based deadlock detection.', keyPoints: ['Request edges', 'Assignment edges', 'Cycle detection'], concepts: ['RAG'], formulas: [] },
-        { id: generateId(), name: 'Deadlock Prevention', priority: 'medium', summary: 'Methods to prevent deadlock occurrence.', keyPoints: ['Breaking mutual exclusion', 'Breaking hold & wait', 'Breaking circular wait'], concepts: ['Prevention strategies'], formulas: [] },
-      ]
-    },
-    {
-      id: generateId(), name: 'Unit 3 – Memory Management',
-      lessons: [
-        { id: generateId(), name: 'Paging', priority: 'high', summary: 'Fixed-size memory allocation using pages and frames.', keyPoints: ['Page table', 'TLB', 'Page size'], concepts: ['Logical vs Physical address'], formulas: ['Physical Address = Frame × Page Size + Offset'] },
-        { id: generateId(), name: 'Virtual Memory', priority: 'high', summary: 'Demand paging and page replacement.', keyPoints: ['Demand paging', 'Page fault', 'Thrashing'], concepts: ['Virtual address space'], formulas: ['Page Fault Rate'] },
-        { id: generateId(), name: 'Segmentation', priority: 'medium', summary: 'Variable-size memory allocation.', keyPoints: ['Segment table', 'Segment number + offset'], concepts: ['Logical segments'], formulas: [] },
-      ]
-    },
-    {
-      id: generateId(), name: 'Unit 4 – File Systems',
-      lessons: [
-        { id: generateId(), name: 'File Organization', priority: 'medium', summary: 'File attributes, operations, and directory structure.', keyPoints: ['File types', 'Access methods', 'Directory structure'], concepts: ['File abstraction'], formulas: [] },
-        { id: generateId(), name: 'Disk Scheduling', priority: 'high', summary: 'Algorithms for disk I/O optimization.', keyPoints: ['FCFS', 'SSTF', 'SCAN', 'C-SCAN'], concepts: ['Seek time optimization'], formulas: ['Total Seek Distance'] },
-      ]
-    },
-  ];
-
-  const lower = subjectName.toLowerCase();
-  if (lower.includes('operating') || lower.includes('os')) return osUnits;
-  return syllabusTemplates.default;
-}
-
 export default function SubjectManager() {
   const navigate = useNavigate();
-  const [subjects, setSubjects] = useState<Subject[]>(store.getSubjects());
+  const [subjects, setSubjects] = useState<Subject[]>([]);
   const [open, setOpen] = useState(false);
   const [name, setName] = useState('');
   const [daysLeft, setDaysLeft] = useState('');
   const [ytLinks, setYtLinks] = useState('');
+  const [syllabusFile, setSyllabusFile] = useState<File | null>(null);
+  const [resourceFiles, setResourceFiles] = useState<File[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [selectedSubject, setSelectedSubject] = useState<string | null>(null);
+  const [resources, setResources] = useState<Resource[]>([]);
+  const [uploading, setUploading] = useState(false);
+  const resourceInputRef = useRef<HTMLInputElement>(null);
 
-  const handleAdd = () => {
+  useEffect(() => {
+    loadSubjects();
+  }, []);
+
+  const loadSubjects = async () => {
+    const s = await getSubjects();
+    setSubjects(s);
+  };
+
+  const loadResources = async (subjectId: string) => {
+    const r = await getResources(subjectId);
+    setResources(r);
+  };
+
+  const handleAdd = async () => {
     if (!name || !daysLeft) {
       toast.error('Subject name and days left are required');
       return;
     }
-    const units = extractSyllabus(name);
-    const subject: Subject = {
-      id: generateId(),
-      name,
-      daysLeft: parseInt(daysLeft),
-      units,
-      youtubeLinks: ytLinks.split('\n').filter(Boolean),
-      createdAt: new Date().toISOString(),
-    };
-    store.addSubject(subject);
-    setSubjects(store.getSubjects());
-    setName('');
-    setDaysLeft('');
-    setYtLinks('');
-    setOpen(false);
-    toast.success(`${subject.name} added with ${units.length} units extracted!`);
+    setLoading(true);
+    try {
+      const units = extractSyllabus(name);
+      const subjectId = await addSubject(name, parseInt(daysLeft), ytLinks.split('\n').filter(Boolean), units);
+      
+      // Upload syllabus PDF if provided
+      if (syllabusFile) {
+        await uploadResource(subjectId, syllabusFile);
+      }
+      // Upload resource files
+      for (const file of resourceFiles) {
+        await uploadResource(subjectId, file);
+      }
+
+      await loadSubjects();
+      setName(''); setDaysLeft(''); setYtLinks('');
+      setSyllabusFile(null); setResourceFiles([]);
+      setOpen(false);
+      toast.success(`${name} added with ${units.length} units!`);
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to add subject');
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleDelete = (id: string) => {
-    store.deleteSubject(id);
-    setSubjects(store.getSubjects());
-    toast.success('Subject removed');
+  const handleDelete = async (id: string) => {
+    try {
+      await deleteSubject(id);
+      await loadSubjects();
+      if (selectedSubject === id) { setSelectedSubject(null); setResources([]); }
+      toast.success('Subject removed');
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to delete');
+    }
+  };
+
+  const handleUploadMore = async (subjectId: string) => {
+    if (!resourceInputRef.current?.files?.length) return;
+    setUploading(true);
+    try {
+      const files = Array.from(resourceInputRef.current.files);
+      for (const file of files) {
+        await uploadResource(subjectId, file);
+      }
+      await loadResources(subjectId);
+      toast.success('Resources uploaded!');
+    } catch (err: any) {
+      toast.error(err.message || 'Upload failed');
+    } finally {
+      setUploading(false);
+      if (resourceInputRef.current) resourceInputRef.current.value = '';
+    }
+  };
+
+  const handleDeleteResource = async (resourceId: string) => {
+    try {
+      await deleteResource(resourceId);
+      setResources(prev => prev.filter(r => r.id !== resourceId));
+      toast.success('Resource deleted');
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to delete resource');
+    }
+  };
+
+  const toggleResources = (subjectId: string) => {
+    if (selectedSubject === subjectId) {
+      setSelectedSubject(null);
+      setResources([]);
+    } else {
+      setSelectedSubject(subjectId);
+      loadResources(subjectId);
+    }
   };
 
   return (
@@ -139,7 +131,7 @@ export default function SubjectManager() {
             <DialogTrigger asChild>
               <Button><Plus className="h-4 w-4 mr-2" /> Add Subject</Button>
             </DialogTrigger>
-            <DialogContent>
+            <DialogContent className="max-h-[85vh] overflow-y-auto">
               <DialogHeader><DialogTitle>Add New Subject</DialogTitle></DialogHeader>
               <div className="space-y-4 pt-2">
                 <div>
@@ -151,6 +143,36 @@ export default function SubjectManager() {
                   <Input type="number" value={daysLeft} onChange={e => setDaysLeft(e.target.value)} placeholder="e.g. 14" className="mt-1.5" />
                 </div>
                 <div>
+                  <Label>Syllabus PDF (required)</Label>
+                  <div className="mt-1.5 border border-input rounded-md p-3">
+                    <input
+                      type="file" accept=".pdf"
+                      onChange={e => setSyllabusFile(e.target.files?.[0] || null)}
+                      className="text-sm w-full file:mr-3 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:bg-primary/10 file:text-primary file:font-medium file:cursor-pointer"
+                    />
+                    {syllabusFile && <p className="text-xs text-muted-foreground mt-1">{syllabusFile.name}</p>}
+                  </div>
+                </div>
+                <div>
+                  <Label>Resource PDFs (notes, previous papers, etc.)</Label>
+                  <div className="mt-1.5 border border-input rounded-md p-3">
+                    <input
+                      type="file" accept=".pdf" multiple
+                      onChange={e => setResourceFiles(Array.from(e.target.files || []))}
+                      className="text-sm w-full file:mr-3 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:bg-primary/10 file:text-primary file:font-medium file:cursor-pointer"
+                    />
+                    {resourceFiles.length > 0 && (
+                      <div className="mt-2 space-y-1">
+                        {resourceFiles.map((f, i) => (
+                          <div key={i} className="flex items-center gap-2 text-xs text-muted-foreground">
+                            <FileText className="h-3 w-3" /> {f.name}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+                <div>
                   <Label>YouTube Links (one per line, optional)</Label>
                   <textarea
                     value={ytLinks} onChange={e => setYtLinks(e.target.value)}
@@ -158,8 +180,10 @@ export default function SubjectManager() {
                     className="mt-1.5 w-full rounded-md border border-input bg-background px-3 py-2 text-sm min-h-[80px] focus:outline-none focus:ring-2 focus:ring-ring"
                   />
                 </div>
-                <p className="text-xs text-muted-foreground">AI will extract units and topics from the subject name. PDF upload coming soon.</p>
-                <Button onClick={handleAdd} className="w-full">Add Subject</Button>
+                <p className="text-xs text-muted-foreground">AI will extract units and topics from the subject name.</p>
+                <Button onClick={handleAdd} className="w-full" disabled={loading}>
+                  {loading ? 'Adding...' : 'Add Subject'}
+                </Button>
               </div>
             </DialogContent>
           </Dialog>
@@ -169,30 +193,72 @@ export default function SubjectManager() {
           <div className="glass-card rounded-xl p-12 text-center">
             <BookOpen className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
             <h3 className="font-display font-semibold text-lg mb-2">No subjects yet</h3>
-            <p className="text-muted-foreground text-sm mb-6">Add your first subject to get started with AI-powered exam preparation.</p>
+            <p className="text-muted-foreground text-sm mb-6">Add your first subject to get started.</p>
             <Button onClick={() => setOpen(true)}><Plus className="h-4 w-4 mr-2" /> Add Subject</Button>
           </div>
         ) : (
           <div className="space-y-3">
             {subjects.map(s => (
-              <div key={s.id} className="glass-card rounded-xl p-5 flex items-center justify-between group hover:glow-border transition-shadow">
-                <div className="flex items-center gap-4 cursor-pointer flex-1" onClick={() => navigate(`/dashboard?subject=${s.id}`)}>
-                  <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
-                    <BookOpen className="h-5 w-5 text-primary" />
+              <div key={s.id} className="glass-card rounded-xl overflow-hidden">
+                <div className="p-5 flex items-center justify-between group">
+                  <div className="flex items-center gap-4 cursor-pointer flex-1" onClick={() => navigate(`/dashboard?subject=${s.id}`)}>
+                    <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                      <BookOpen className="h-5 w-5 text-primary" />
+                    </div>
+                    <div>
+                      <h3 className="font-display font-semibold">{s.name}</h3>
+                      <p className="text-xs text-muted-foreground">{s.units.length} units · {s.daysLeft} days left</p>
+                    </div>
                   </div>
-                  <div>
-                    <h3 className="font-display font-semibold">{s.name}</h3>
-                    <p className="text-xs text-muted-foreground">{s.units.length} units · {s.daysLeft} days left</p>
+                  <div className="flex items-center gap-2">
+                    <Button variant="ghost" size="sm" onClick={() => toggleResources(s.id)}>
+                      <FileText className="h-4 w-4 mr-1" /> Resources
+                    </Button>
+                    <Button variant="ghost" size="icon" onClick={() => handleDelete(s.id)}>
+                      <Trash2 className="h-4 w-4 text-muted-foreground" />
+                    </Button>
+                    <Button variant="ghost" size="icon" onClick={() => navigate(`/dashboard?subject=${s.id}`)}>
+                      <ArrowRight className="h-4 w-4" />
+                    </Button>
                   </div>
                 </div>
-                <div className="flex items-center gap-2">
-                  <Button variant="ghost" size="icon" onClick={() => handleDelete(s.id)}>
-                    <Trash2 className="h-4 w-4 text-muted-foreground" />
-                  </Button>
-                  <Button variant="ghost" size="icon" onClick={() => navigate(`/dashboard?subject=${s.id}`)}>
-                    <ArrowRight className="h-4 w-4" />
-                  </Button>
-                </div>
+                {selectedSubject === s.id && (
+                  <div className="border-t border-border px-5 pb-4 pt-3">
+                    <div className="flex items-center justify-between mb-3">
+                      <h4 className="text-sm font-medium">Uploaded Resources</h4>
+                      <div className="flex items-center gap-2">
+                        <input ref={resourceInputRef} type="file" accept=".pdf" multiple className="hidden" onChange={() => handleUploadMore(s.id)} />
+                        <Button variant="outline" size="sm" onClick={() => resourceInputRef.current?.click()} disabled={uploading}>
+                          <Upload className="h-3.5 w-3.5 mr-1" /> {uploading ? 'Uploading...' : 'Upload'}
+                        </Button>
+                      </div>
+                    </div>
+                    {resources.length === 0 ? (
+                      <p className="text-xs text-muted-foreground">No resources uploaded yet.</p>
+                    ) : (
+                      <div className="space-y-2">
+                        {resources.map(r => (
+                          <div key={r.id} className="flex items-center justify-between py-2 px-3 rounded-lg bg-muted/50">
+                            <div className="flex items-center gap-2">
+                              <FileText className="h-4 w-4 text-primary" />
+                              <span className="text-sm">{r.file_name}</span>
+                            </div>
+                            <div className="flex items-center gap-1">
+                              <Button variant="ghost" size="sm" asChild>
+                                <a href={r.file_url} target="_blank" rel="noopener noreferrer">
+                                  <ExternalLink className="h-3.5 w-3.5 mr-1" /> Open
+                                </a>
+                              </Button>
+                              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleDeleteResource(r.id)}>
+                                <X className="h-3.5 w-3.5 text-muted-foreground" />
+                              </Button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             ))}
           </div>
