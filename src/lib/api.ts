@@ -1,5 +1,5 @@
 import { supabase } from '@/integrations/supabase/client';
-import { Subject, Unit, Lesson, Resource, UserProfile } from './types';
+import { Subject, Unit, Lesson, Resource, UserProfile, PredictedQuestion } from './types';
 
 // ---- Auth helpers ----
 export async function signUp(email: string, password: string) {
