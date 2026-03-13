@@ -1,10 +1,10 @@
 import { useState, useEffect, useRef } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
-import { Send, Timer, BookOpen, AlertCircle, Pause } from 'lucide-react';
+import { Send, Timer, BookOpen, AlertCircle, Pause, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ChatMessage, Unit, Subject } from '@/lib/types';
-import { getSubjects, streamChat } from '@/lib/api';
+import { getSubjects, streamChat, streamUnitSummary } from '@/lib/api';
 import { toast } from 'sonner';
 import ReactMarkdown from 'react-markdown';
 
@@ -24,6 +24,8 @@ export default function FocusSession() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
   const [isStreaming, setIsStreaming] = useState(false);
+  const [unitSummary, setUnitSummary] = useState('');
+  const [summaryLoading, setSummaryLoading] = useState(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
   const timerRef = useRef<ReturnType<typeof setInterval>>();
 
@@ -73,13 +75,58 @@ export default function FocusSession() {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  const startSession = () => {
+  const startSession = async () => {
     setTimeLeft(duration * 60);
     setStarted(true);
     setMessages([{
       id: '1', role: 'assistant',
       content: `Welcome to your focus session on **${unit?.name || 'this unit'}**! 🎯\n\nI'm your AI study assistant. Ask me any doubts about this topic and I'll help you understand.`
     }]);
+
+    // Generate AI unit summary
+    if (subject && unit) {
+      setSummaryLoading(true);
+      let summaryContent = '';
+      try {
+        await streamUnitSummary({
+          subject: subject.name,
+          unit: unit.name,
+          topics: unit.lessons.map(l => ({
+            name: l.name,
+            summary: l.summary,
+            key_points: l.key_points,
+            concepts: l.concepts,
+            formulas: l.formulas,
+          })),
+          onDelta: (chunk) => {
+            summaryContent += chunk;
+            setUnitSummary(summaryContent);
+          },
+          onDone: () => {
+            setSummaryLoading(false);
+          },
+        });
+      } catch (err: any) {
+        toast.error(err.message || 'Failed to generate unit summary');
+        setSummaryLoading(false);
+        // Fallback to static summary
+        setUnitSummary(buildFallbackSummary(unit));
+      }
+    }
+  };
+
+  const buildFallbackSummary = (u: Unit): string => {
+    let md = `# ${u.name}\n\n## Topics Covered\n`;
+    u.lessons.forEach(l => { md += `- ${l.name}\n`; });
+    md += '\n## Key Points\n';
+    u.lessons.forEach(l => {
+      if (l.key_points?.length) {
+        md += `### ${l.name}\n`;
+        l.key_points.forEach(kp => { md += `- ${kp}\n`; });
+        md += '\n';
+      }
+    });
+    return md;
   };
 
   const sendMessage = async () => {
@@ -218,56 +265,23 @@ export default function FocusSession() {
           </div>
         </div>
 
-        {/* Right - Unit Summary */}
-        <div className="w-[400px] overflow-y-auto p-6 hidden md:block">
-          <div className="flex items-center gap-2 mb-6">
+        {/* Right - AI Generated Unit Summary */}
+        <div className="w-[420px] overflow-y-auto p-6 hidden md:block">
+          <div className="flex items-center gap-2 mb-4">
             <BookOpen className="h-5 w-5 text-primary" />
             <h3 className="font-display font-semibold">Unit Summary</h3>
+            {summaryLoading && <Loader2 className="h-4 w-4 animate-spin text-primary" />}
           </div>
-          <div className="space-y-6">
-            <div>
-              <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">Unit</h4>
-              <p className="font-medium">{unit.name}</p>
+          {unitSummary ? (
+            <div className="prose prose-sm dark:prose-invert max-w-none">
+              <ReactMarkdown>{unitSummary}</ReactMarkdown>
             </div>
-            <div>
-              <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-3">Topics</h4>
-              <div className="space-y-4">
-                {unit.lessons.map(lesson => (
-                  <div key={lesson.id} className="bg-muted/50 rounded-lg p-4">
-                    <p className="font-medium text-sm mb-1">{lesson.name}</p>
-                    {lesson.summary && <p className="text-xs text-muted-foreground mb-2">{lesson.summary}</p>}
-                    {lesson.key_points && lesson.key_points.length > 0 && (
-                      <div className="mb-2">
-                        <p className="text-xs font-medium text-muted-foreground mb-1">Key Points:</p>
-                        <ul className="space-y-0.5">
-                          {lesson.key_points.map((kp, i) => (
-                            <li key={i} className="text-xs flex items-start gap-1.5">
-                              <span className="h-1 w-1 rounded-full bg-primary mt-1.5 shrink-0" />
-                              {kp}
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                    )}
-                    {lesson.concepts && lesson.concepts.length > 0 && (
-                      <div className="flex flex-wrap gap-1 mb-2">
-                        {lesson.concepts.map((c, i) => (
-                          <span key={i} className="text-xs px-2 py-0.5 rounded-full bg-primary/10 text-primary font-medium">{c}</span>
-                        ))}
-                      </div>
-                    )}
-                    {lesson.formulas && lesson.formulas.length > 0 && (
-                      <div className="space-y-1">
-                        {lesson.formulas.map((f, i) => (
-                          <div key={i} className="text-xs font-mono bg-background rounded px-2 py-1">{f}</div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
+          ) : summaryLoading ? (
+            <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
+              <Loader2 className="h-8 w-8 animate-spin text-primary mb-3" />
+              <p className="text-sm">Generating unit summary...</p>
             </div>
-          </div>
+          ) : null}
         </div>
       </div>
     </div>
