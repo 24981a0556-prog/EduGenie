@@ -1,22 +1,24 @@
 import { ReactNode } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { BookOpen, LayoutDashboard, LogOut, User } from 'lucide-react';
+import { BookOpen, LayoutDashboard, LogOut, User, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { store } from '@/lib/store';
+import { signOut } from '@/lib/api';
+import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
 
 const navItems = [
   { label: 'Subjects', path: '/subjects', icon: BookOpen },
   { label: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
+  { label: 'Exam Predictor', path: '/exam-predictor', icon: Sparkles },
 ];
 
 export default function AppShell({ children }: { children: ReactNode }) {
   const navigate = useNavigate();
   const location = useLocation();
-  const profile = store.getProfile();
+  const { session } = useAuth();
 
-  const logout = () => {
-    store.clearAuth();
+  const logout = async () => {
+    await signOut();
     toast.success('Logged out');
     navigate('/');
   };
@@ -43,9 +45,9 @@ export default function AppShell({ children }: { children: ReactNode }) {
             </div>
           </div>
           <div className="flex items-center gap-3">
-            {profile && (
+            {session && (
               <span className="text-sm text-muted-foreground flex items-center gap-1.5">
-                <User className="h-3.5 w-3.5" /> {profile.name}
+                <User className="h-3.5 w-3.5" /> {session.user.email}
               </span>
             )}
             <Button variant="ghost" size="sm" onClick={logout}>

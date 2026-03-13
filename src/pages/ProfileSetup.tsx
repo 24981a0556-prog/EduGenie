@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { store } from '@/lib/store';
+import { saveProfile } from '@/lib/api';
 import { toast } from 'sonner';
 
 const branches = ['CSE', 'CSM', 'ECE', 'EEE', 'Civil', 'Mechanical', 'IT', 'Other'];
@@ -16,16 +16,24 @@ export default function ProfileSetup() {
   const [branch, setBranch] = useState('');
   const [year, setYear] = useState('');
   const [semester, setSemester] = useState('');
+  const [loading, setLoading] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name || !college || !branch || !year || !semester) {
       toast.error('Please fill in all fields');
       return;
     }
-    store.setProfile({ name, college, branch, year, semester });
-    toast.success('Profile saved!');
-    navigate('/dashboard');
+    setLoading(true);
+    try {
+      await saveProfile({ name, college, branch, year, semester });
+      toast.success('Profile saved!');
+      navigate('/subjects');
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to save profile');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -66,14 +74,17 @@ export default function ProfileSetup() {
             <div>
               <Label htmlFor="semester">Semester</Label>
               <Select value={semester} onValueChange={setSemester}>
-                <SelectTrigger className="mt-1.5"><SelectValue placeholder="Sem" /></SelectTrigger>
+                <SelectTrigger className="mt-1.5"><SelectValue placeholder="Semester" /></SelectTrigger>
                 <SelectContent>
-                  {['1', '2', '3', '4', '5', '6', '7', '8'].map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                  <SelectItem value="Semester 1">Semester 1</SelectItem>
+                  <SelectItem value="Semester 2">Semester 2</SelectItem>
                 </SelectContent>
               </Select>
             </div>
           </div>
-          <Button type="submit" className="w-full">Save & Continue</Button>
+          <Button type="submit" className="w-full" disabled={loading}>
+            {loading ? 'Saving...' : 'Save & Continue'}
+          </Button>
         </form>
       </div>
     </div>

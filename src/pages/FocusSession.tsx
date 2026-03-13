@@ -1,39 +1,21 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { Send, Timer, BookOpen, AlertCircle, Pause } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { ChatMessage, Lesson } from '@/lib/types';
-import { store } from '@/lib/store';
+import { ChatMessage, Unit, Subject } from '@/lib/types';
+import { getSubjects, streamChat } from '@/lib/api';
 import { toast } from 'sonner';
-
-const BLOCKED_TOPICS = ['weather', 'news', 'politics', 'movie', 'game', 'sport', 'gossip', 'celebrity'];
-
-function getLesson(subjectName: string, lessonName: string): Lesson | null {
-  const subjects = store.getSubjects();
-  const subject = subjects.find(s => s.name === subjectName);
-  if (!subject) return null;
-  for (const unit of subject.units) {
-    const lesson = unit.lessons.find(l => l.name === lessonName);
-    if (lesson) return lesson;
-  }
-  return null;
-}
-
-function generateResponse(question: string, lessonName: string): string {
-  const q = question.toLowerCase();
-  if (BLOCKED_TOPICS.some(t => q.includes(t))) {
-    return 'I am designed to assist only with study related questions. Please ask me about your lesson topics.';
-  }
-  return `Great question about **${lessonName}**!\n\nRegarding "${question}":\n\nThis is a core concept in this topic. Here are the key points to remember:\n\n1. **Definition**: This concept refers to the fundamental principle governing this area of study.\n2. **Application**: It's commonly applied in exam scenarios involving analysis and problem-solving.\n3. **Key insight**: Understanding the underlying mechanism is crucial for answering related questions.\n\n💡 *Tip: Focus on the relationship between this concept and related topics for a deeper understanding.*`;
-}
+import ReactMarkdown from 'react-markdown';
 
 export default function FocusSession() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const subjectName = searchParams.get('subject') || '';
-  const lessonName = decodeURIComponent(searchParams.get('lesson') || '');
+  const subjectId = searchParams.get('subject') || '';
+  const unitId = searchParams.get('unit') || '';
 
+  const [subject, setSubject] = useState<Subject | null>(null);
+  const [unit, setUnit] = useState<Unit | null>(null);
   const [duration, setDuration] = useState(25);
   const [started, setStarted] = useState(false);
   const [timeLeft, setTimeLeft] = useState(0);
@@ -41,22 +23,27 @@ export default function FocusSession() {
   const [tabAway, setTabAway] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
+  const [isStreaming, setIsStreaming] = useState(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
   const timerRef = useRef<ReturnType<typeof setInterval>>();
 
-  const lesson = getLesson(subjectName, lessonName);
+  useEffect(() => {
+    (async () => {
+      const subjects = await getSubjects();
+      const s = subjects.find(x => x.id === subjectId);
+      if (!s) return;
+      setSubject(s);
+      const u = s.units.find(x => x.id === unitId);
+      if (u) setUnit(u);
+    })();
+  }, [subjectId, unitId]);
 
   // Tab visibility detection
   useEffect(() => {
     if (!started) return;
     const handleVisibility = () => {
-      if (document.hidden) {
-        setTabAway(true);
-        setPaused(true);
-      } else {
-        setTabAway(false);
-        setPaused(false);
-      }
+      if (document.hidden) { setTabAway(true); setPaused(true); }
+      else { setTabAway(false); setPaused(false); }
     };
     document.addEventListener('visibilitychange', handleVisibility);
     return () => document.removeEventListener('visibilitychange', handleVisibility);
@@ -73,14 +60,14 @@ export default function FocusSession() {
         if (prev <= 1) {
           clearInterval(timerRef.current);
           toast.success('Focus session complete!');
-          navigate(`/exam-predictor?subject=${subjectName}&lesson=${encodeURIComponent(lessonName)}`);
+          navigate(`/exam-predictor?subject=${subjectId}&unit=${unitId}`);
           return 0;
         }
         return prev - 1;
       });
     }, 1000);
     return () => { if (timerRef.current) clearInterval(timerRef.current); };
-  }, [started, paused, navigate, subjectName, lessonName]);
+  }, [started, paused, navigate, subjectId, unitId]);
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -91,16 +78,47 @@ export default function FocusSession() {
     setStarted(true);
     setMessages([{
       id: '1', role: 'assistant',
-      content: `Welcome to your focus session on **${lessonName}**! 🎯\n\nI'm your AI study assistant. Ask me any doubts about this topic and I'll help you understand.`
+      content: `Welcome to your focus session on **${unit?.name || 'this unit'}**! 🎯\n\nI'm your AI study assistant. Ask me any doubts about this topic and I'll help you understand.`
     }]);
   };
 
-  const sendMessage = () => {
-    if (!input.trim()) return;
+  const sendMessage = async () => {
+    if (!input.trim() || isStreaming) return;
     const userMsg: ChatMessage = { id: Date.now().toString(), role: 'user', content: input };
-    const botMsg: ChatMessage = { id: (Date.now() + 1).toString(), role: 'assistant', content: generateResponse(input, lessonName) };
-    setMessages(prev => [...prev, userMsg, botMsg]);
+    setMessages(prev => [...prev, userMsg]);
     setInput('');
+    setIsStreaming(true);
+
+    let assistantContent = '';
+    const chatHistory = [...messages, userMsg].map(m => ({ role: m.role, content: m.content }));
+
+    try {
+      await streamChat({
+        messages: chatHistory,
+        context: {
+          subject: subject?.name || '',
+          unit: unit?.name || '',
+          topics: unit?.lessons.map(l => l.name) || [],
+        },
+        onDelta: (chunk) => {
+          assistantContent += chunk;
+          setMessages(prev => {
+            const last = prev[prev.length - 1];
+            if (last?.role === 'assistant' && last.id === 'streaming') {
+              return prev.map((m, i) => i === prev.length - 1 ? { ...m, content: assistantContent } : m);
+            }
+            return [...prev, { id: 'streaming', role: 'assistant', content: assistantContent }];
+          });
+        },
+        onDone: () => {
+          setMessages(prev => prev.map(m => m.id === 'streaming' ? { ...m, id: Date.now().toString() } : m));
+          setIsStreaming(false);
+        },
+      });
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to get response');
+      setIsStreaming(false);
+    }
   };
 
   const formatTime = (s: number) => {
@@ -108,6 +126,8 @@ export default function FocusSession() {
     const sec = s % 60;
     return `${m.toString().padStart(2, '0')}:${sec.toString().padStart(2, '0')}`;
   };
+
+  if (!subject || !unit) return null;
 
   if (!started) {
     return (
@@ -117,7 +137,7 @@ export default function FocusSession() {
             <Timer className="h-7 w-7 text-primary" />
           </div>
           <h1 className="font-display text-2xl font-bold mb-2">Start Focus Session</h1>
-          <p className="text-muted-foreground text-sm mb-6">{lessonName} · {subjectName}</p>
+          <p className="text-muted-foreground text-sm mb-6">{unit.name} · {subject.name}</p>
           <div className="mb-6">
             <label className="text-sm font-medium mb-2 block">Focus Time (minutes)</label>
             <Input
@@ -132,12 +152,11 @@ export default function FocusSession() {
     );
   }
 
-  // Tab away overlay
   if (tabAway) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center p-4">
         <div className="glass-card rounded-xl p-12 text-center max-w-md">
-          <Pause className="h-16 w-16 text-primary mx-auto mb-6 animate-pulse-glow" />
+          <Pause className="h-16 w-16 text-primary mx-auto mb-6 animate-pulse" />
           <h1 className="font-display text-2xl font-bold mb-3">Focus Mode Paused</h1>
           <p className="text-muted-foreground">Return to continue your study session.</p>
         </div>
@@ -150,15 +169,15 @@ export default function FocusSession() {
       {/* Top Bar */}
       <div className="border-b border-border bg-card px-4 py-3 flex items-center justify-between shrink-0">
         <div className="flex items-center gap-3">
-          <div className="h-2.5 w-2.5 rounded-full bg-primary animate-pulse-glow" />
+          <div className="h-2.5 w-2.5 rounded-full bg-primary animate-pulse" />
           <span className="font-display font-semibold text-sm">Focus Mode</span>
-          <span className="text-sm text-muted-foreground">· {lessonName}</span>
+          <span className="text-sm text-muted-foreground">· {unit.name}</span>
         </div>
         <div className="flex items-center gap-3">
           <span className="font-display text-lg font-bold tabular-nums">{formatTime(timeLeft)}</span>
           <Button variant="outline" size="sm" onClick={() => {
             if (timerRef.current) clearInterval(timerRef.current);
-            navigate(`/exam-predictor?subject=${subjectName}&lesson=${encodeURIComponent(lessonName)}`);
+            navigate(`/exam-predictor?subject=${subjectId}&unit=${unitId}`);
           }}>End Session</Button>
         </div>
       </div>
@@ -176,11 +195,11 @@ export default function FocusSession() {
             {messages.map(msg => (
               <div key={msg.id} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                 <div className={`max-w-[80%] rounded-xl px-4 py-3 text-sm ${
-                  msg.role === 'user'
-                    ? 'bg-primary text-primary-foreground'
-                    : 'bg-muted'
+                  msg.role === 'user' ? 'bg-primary text-primary-foreground' : 'bg-muted'
                 }`}>
-                  <div className="whitespace-pre-wrap">{msg.content.replace(/\*\*(.*?)\*\*/g, '$1')}</div>
+                  <div className="prose prose-sm dark:prose-invert max-w-none">
+                    <ReactMarkdown>{msg.content}</ReactMarkdown>
+                  </div>
                 </div>
               </div>
             ))}
@@ -191,66 +210,64 @@ export default function FocusSession() {
               value={input} onChange={e => setInput(e.target.value)}
               placeholder="Ask a study question..."
               onKeyDown={e => e.key === 'Enter' && sendMessage()}
+              disabled={isStreaming}
             />
-            <Button size="icon" onClick={sendMessage}><Send className="h-4 w-4" /></Button>
+            <Button size="icon" onClick={sendMessage} disabled={isStreaming}>
+              <Send className="h-4 w-4" />
+            </Button>
           </div>
         </div>
 
-        {/* Right - Summary */}
+        {/* Right - Unit Summary */}
         <div className="w-[400px] overflow-y-auto p-6 hidden md:block">
           <div className="flex items-center gap-2 mb-6">
             <BookOpen className="h-5 w-5 text-primary" />
-            <h3 className="font-display font-semibold">Lesson Summary</h3>
+            <h3 className="font-display font-semibold">Unit Summary</h3>
           </div>
-          {lesson ? (
-            <div className="space-y-5">
-              <div>
-                <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">Topic</h4>
-                <p className="font-medium">{lesson.name}</p>
-              </div>
-              {lesson.summary && (
-                <div>
-                  <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">Explanation</h4>
-                  <p className="text-sm text-muted-foreground">{lesson.summary}</p>
-                </div>
-              )}
-              {lesson.keyPoints && lesson.keyPoints.length > 0 && (
-                <div>
-                  <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">Key Points</h4>
-                  <ul className="space-y-1.5">
-                    {lesson.keyPoints.map((kp, i) => (
-                      <li key={i} className="text-sm flex items-start gap-2">
-                        <span className="h-1.5 w-1.5 rounded-full bg-primary mt-1.5 shrink-0" />
-                        {kp}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-              {lesson.concepts && lesson.concepts.length > 0 && (
-                <div>
-                  <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">Important Concepts</h4>
-                  <div className="flex flex-wrap gap-2">
-                    {lesson.concepts.map((c, i) => (
-                      <span key={i} className="text-xs px-2.5 py-1 rounded-full bg-primary/10 text-primary font-medium">{c}</span>
-                    ))}
-                  </div>
-                </div>
-              )}
-              {lesson.formulas && lesson.formulas.length > 0 && (
-                <div>
-                  <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">Formulas</h4>
-                  <div className="space-y-2">
-                    {lesson.formulas.map((f, i) => (
-                      <div key={i} className="text-sm font-mono bg-muted rounded-lg px-3 py-2">{f}</div>
-                    ))}
-                  </div>
-                </div>
-              )}
+          <div className="space-y-6">
+            <div>
+              <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">Unit</h4>
+              <p className="font-medium">{unit.name}</p>
             </div>
-          ) : (
-            <p className="text-sm text-muted-foreground">No lesson data available.</p>
-          )}
+            <div>
+              <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-3">Topics</h4>
+              <div className="space-y-4">
+                {unit.lessons.map(lesson => (
+                  <div key={lesson.id} className="bg-muted/50 rounded-lg p-4">
+                    <p className="font-medium text-sm mb-1">{lesson.name}</p>
+                    {lesson.summary && <p className="text-xs text-muted-foreground mb-2">{lesson.summary}</p>}
+                    {lesson.key_points && lesson.key_points.length > 0 && (
+                      <div className="mb-2">
+                        <p className="text-xs font-medium text-muted-foreground mb-1">Key Points:</p>
+                        <ul className="space-y-0.5">
+                          {lesson.key_points.map((kp, i) => (
+                            <li key={i} className="text-xs flex items-start gap-1.5">
+                              <span className="h-1 w-1 rounded-full bg-primary mt-1.5 shrink-0" />
+                              {kp}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                    {lesson.concepts && lesson.concepts.length > 0 && (
+                      <div className="flex flex-wrap gap-1 mb-2">
+                        {lesson.concepts.map((c, i) => (
+                          <span key={i} className="text-xs px-2 py-0.5 rounded-full bg-primary/10 text-primary font-medium">{c}</span>
+                        ))}
+                      </div>
+                    )}
+                    {lesson.formulas && lesson.formulas.length > 0 && (
+                      <div className="space-y-1">
+                        {lesson.formulas.map((f, i) => (
+                          <div key={i} className="text-xs font-mono bg-background rounded px-2 py-1">{f}</div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </div>
