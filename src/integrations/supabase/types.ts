@@ -14,7 +14,183 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      lessons: {
+        Row: {
+          concepts: string[] | null
+          created_at: string
+          formulas: string[] | null
+          id: string
+          key_points: string[] | null
+          name: string
+          priority: string
+          sort_order: number
+          summary: string | null
+          unit_id: string
+        }
+        Insert: {
+          concepts?: string[] | null
+          created_at?: string
+          formulas?: string[] | null
+          id?: string
+          key_points?: string[] | null
+          name: string
+          priority?: string
+          sort_order?: number
+          summary?: string | null
+          unit_id: string
+        }
+        Update: {
+          concepts?: string[] | null
+          created_at?: string
+          formulas?: string[] | null
+          id?: string
+          key_points?: string[] | null
+          name?: string
+          priority?: string
+          sort_order?: number
+          summary?: string | null
+          unit_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lessons_unit_id_fkey"
+            columns: ["unit_id"]
+            isOneToOne: false
+            referencedRelation: "units"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      profiles: {
+        Row: {
+          branch: string
+          college: string
+          created_at: string
+          id: string
+          name: string
+          semester: string
+          updated_at: string
+          user_id: string
+          year: string
+        }
+        Insert: {
+          branch?: string
+          college?: string
+          created_at?: string
+          id?: string
+          name?: string
+          semester?: string
+          updated_at?: string
+          user_id: string
+          year?: string
+        }
+        Update: {
+          branch?: string
+          college?: string
+          created_at?: string
+          id?: string
+          name?: string
+          semester?: string
+          updated_at?: string
+          user_id?: string
+          year?: string
+        }
+        Relationships: []
+      }
+      resources: {
+        Row: {
+          created_at: string
+          file_name: string
+          file_url: string
+          id: string
+          subject_id: string
+        }
+        Insert: {
+          created_at?: string
+          file_name: string
+          file_url: string
+          id?: string
+          subject_id: string
+        }
+        Update: {
+          created_at?: string
+          file_name?: string
+          file_url?: string
+          id?: string
+          subject_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "resources_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "subjects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      subjects: {
+        Row: {
+          created_at: string
+          days_left: number
+          id: string
+          name: string
+          updated_at: string
+          user_id: string
+          youtube_links: string[] | null
+        }
+        Insert: {
+          created_at?: string
+          days_left?: number
+          id?: string
+          name: string
+          updated_at?: string
+          user_id: string
+          youtube_links?: string[] | null
+        }
+        Update: {
+          created_at?: string
+          days_left?: number
+          id?: string
+          name?: string
+          updated_at?: string
+          user_id?: string
+          youtube_links?: string[] | null
+        }
+        Relationships: []
+      }
+      units: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          sort_order: number
+          subject_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+          sort_order?: number
+          subject_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+          sort_order?: number
+          subject_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "units_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "subjects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
