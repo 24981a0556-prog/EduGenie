@@ -6,26 +6,24 @@ export interface UserProfile {
   semester: string;
 }
 
-export interface Subtopic {
-  id: string;
-  name: string;
-  priority: 'high' | 'medium' | 'low';
-}
-
 export interface Lesson {
   id: string;
   name: string;
-  priority: 'high' | 'medium' | 'low';
+  priority: string;
   summary?: string;
-  keyPoints?: string[];
+  key_points?: string[];
   concepts?: string[];
   formulas?: string[];
+  sort_order?: number;
+  unit_id?: string;
 }
 
 export interface Unit {
   id: string;
   name: string;
   lessons: Lesson[];
+  sort_order?: number;
+  subject_id?: string;
 }
 
 export interface Subject {
@@ -37,10 +35,18 @@ export interface Subject {
   createdAt: string;
 }
 
-export interface FocusSession {
-  lessonName: string;
+export interface Resource {
+  id: string;
+  subject_id: string;
+  file_name: string;
+  file_url: string;
+  created_at: string;
+}
+
+export interface FocusSessionType {
+  unitName: string;
   subjectName: string;
-  duration: number; // minutes
+  duration: number;
   startedAt?: string;
 }
 
