@@ -1,138 +1,73 @@
-# EduGenie – AI Powered Exam Preparation Assistant
-
-EduGenie is an AI-powered study platform that helps students prepare smarter for exams by analyzing their syllabus, study resources, and previous year papers.
-
-Instead of spending hours searching for materials, EduGenie organizes topics, provides structured summaries, enables focused study sessions, and predicts likely exam questions.
-
-The goal is to help students focus on **what matters most for their exams.**
-
-## Problem Statement
-
-Students preparing for exams face several challenges:
-
-- Study resources are scattered across PDFs, YouTube, and notes.
-- Students don’t know which topics are most important.
-- There is no way to estimate what questions may appear in exams.
-- Students spend more time searching than studying.
-
-Existing tools like search engines or generic AI assistants are not syllabus-aware and do not support exam-focused preparation.
-
-## Solution
-
-EduGenie provides an exam-focused preparation system.
-
-Students upload their syllabus and study resources. EduGenie analyzes them and converts them into structured learning units.
-
-The platform then helps students:
-
-- identify important topics
-- study using focused sessions
-- ask topic-specific doubts
-- view predicted exam questions
-
- ## Core Features
-
-### 1. Syllabus Intelligence
-Students upload their syllabus PDF.  
-The system extracts units and topics automatically and organizes them into a structured subject dashboard.
-
-### 2. Resource Integration
-Students can upload multiple study resources such as PDFs, notes, and previous year papers.  
-All resources can be accessed directly within the platform.
-
-### 3. Focus Study Mode
-Students can start a timed focus session for a specific unit.
-
-During the session they see:
-- structured unit summaries
-- key concepts and formulas
-- examples
-- AI doubt solver
-
-### 4. AI Doubt Solver
-A study-focused AI assistant helps answer questions related to the topic being studied.
-
-### 5. AI Exam Predictor
-EduGenie generates likely exam questions based on syllabus structure and topic patterns.
-
-Students can revisit the exam predictor page anytime to review expected questions and answers.
-
-### 6. Cheat Sheet Generator
-Each unit includes a quick revision cheat sheet with:
-- mind maps
-- key points
-- one-line revision notes
-
-## System Architecture
-
-EduGenie follows a modular architecture consisting of:
-
-Frontend → Backend APIs → Database → AI Processing
-
-1. Frontend  
-Built using React and Tailwind CSS for an interactive dashboard and study interface.
-
-2. Backend  
-Handles authentication, data processing, and AI requests.
-
-3. Database  
-Stores user profiles, subjects, units, topics, and uploaded resources.
-
-4. AI Processing  
-Used for:
-- syllabus extraction
-- unit summaries
-- doubt solving
-- exam question prediction
-
-## Tech Stack
-
-Frontend
-- React
-- Vite
-- Tailwind CSS
-- shadcn/ui
-
-Backend
-- Node.js APIs
-
-Database
-- Supabase / PostgreSQL
-
-Storage
-- Supabase Storage for PDF resources
-
-AI Integration
-- AI APIs for syllabus extraction, summaries, chatbot, and exam prediction
-
- ## User Workflow
-
-1. User signs up and creates a profile
-2. Adds subjects and uploads syllabus and resources
-3. EduGenie extracts units and topics
-4. User studies a unit using Focus Mode
-5. AI doubt solver helps during study
-6. Exam Predictor generates expected questions
-7. User revises using cheat sheets
+# Welcome to your Lovable project
 
 ## Project info
 
-**URL**: edugenie-233dzf6i8-24981a0556-progs-projects.vercel.app
+**URL**: https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID
 
-## Installation
+## How can I edit this code?
 
-Clone the repository
+There are several ways of editing your application.
 
-git clone https://github.com/your-repo/edugenie
+**Use Lovable**
 
-Navigate to project folder
+Simply visit the [Lovable Project](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and start prompting.
 
-cd edugenie
+Changes made via Lovable will be committed automatically to this repo.
 
-Install dependencies
+**Use your preferred IDE**
 
-npm install
+If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
 
-Run development server
+The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
 
+Follow these steps:
+
+```sh
+# Step 1: Clone the repository using the project's Git URL.
+git clone <YOUR_GIT_URL>
+
+# Step 2: Navigate to the project directory.
+cd <YOUR_PROJECT_NAME>
+
+# Step 3: Install the necessary dependencies.
+npm i
+
+# Step 4: Start the development server with auto-reloading and an instant preview.
 npm run dev
+```
+
+**Edit a file directly in GitHub**
+
+- Navigate to the desired file(s).
+- Click the "Edit" button (pencil icon) at the top right of the file view.
+- Make your changes and commit the changes.
+
+**Use GitHub Codespaces**
+
+- Navigate to the main page of your repository.
+- Click on the "Code" button (green button) near the top right.
+- Select the "Codespaces" tab.
+- Click on "New codespace" to launch a new Codespace environment.
+- Edit files directly within the Codespace and commit and push your changes once you're done.
+
+## What technologies are used for this project?
+
+This project is built with:
+
+- Vite
+- TypeScript
+- React
+- shadcn-ui
+- Tailwind CSS
+
+## How can I deploy this project?
+
+Simply open [Lovable](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and click on Share -> Publish.
+
+## Can I connect a custom domain to my Lovable project?
+
+Yes, you can!
+
+To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
+
+Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
